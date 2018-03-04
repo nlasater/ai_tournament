@@ -301,36 +301,6 @@ class getOffAction(Action):
             self.evaluate(next_state, Directions.STOP) + decay * self.allSimulation(depth - 1, next_state, decay))
     return max(result_list)
 
-  def MTCS(self, depth, gameState, decay):
-    """
-    Random simulate some actions for the agent. The actions other agents can take
-    are ignored, or, in other words, we consider their actions is always STOP.
-    The final state from the simulation is evaluated.
-    """
-    new_state = gameState.deepCopy()
-    value = self.evaluate(new_state, Directions.STOP)
-    decay_index = 1
-    while depth > 0:
-
-        # Get valid actions
-        actions = new_state.getLegalActions(self.index)
-        # The agent should not stay put in the simulation
-        # actions.remove(Directions.STOP)
-        current_direction = new_state.getAgentState(self.agent.index).configuration.direction
-        # The agent should not use the reverse direction during simulation
-        reversed_direction = Directions.REVERSE[new_state.getAgentState(self.agent.index).configuration.direction]
-        if reversed_direction in actions and len(actions) > 1:
-            actions.remove(reversed_direction)
-        # Randomly chooses a valid action
-        a = random.choice(actions)
-        # Compute new state and update depth
-        new_state = new_state.generateSuccessor(self.agent.index, a)
-        value = value + decay ** decay_index * self.evaluate(new_state, Directions.STOP)
-        depth -= 1
-        decay_index += 1
-    # Evaluate the final simulation state
-    return value
-
 
   def chooseAction(self, gameState):
     start = time.time()
