@@ -220,15 +220,10 @@ class getOffAction(Action):
     
     # if we are pacman:
     if state.getAgentState(self.index).isPacman:
-      
       # test to see if opp is scared, if so we can go for the ghost if we're close
       allEnem = [successor.getAgentState(i) for i in self.agent.getOpponents(successor)]
-      enemyGhosts = []
+      enemyGhosts = filter(lambda x: not x.isPacman and x.getPosition() != None, allEnem)
       # parse for only enemy ghosts:
-      for g in allEnem:
-        if not g.isPacman: 
-          enemyGhosts.append(g)
-
       for gh in enemyGhosts:
         if gh.scaredTimer > 0:
           if gh.scaredTimer > 12: # we have lots of time to get there:
@@ -241,9 +236,11 @@ class getOffAction(Action):
         # if theyre not scared:
         else:
           return {'sucScore': 110, 'foodDist': -10, 'nomPacmanDist': 0, 'distFromGhost': 20, 'capDist': -15, 'returnDist': -15, 'eaten': 0}
-        
+      
+    """
     # if we are a ghost:
     else:
+      
       # if we are close to an enemy pacman, nom it:
       # first get all enemy states:
       enemies = [successor.getAgentState(i) for i in self.agent.getOpponents(successor)]
@@ -256,10 +253,13 @@ class getOffAction(Action):
         if closeDist < 4:
             return {'sucScore': 0, 'foodDist': -1, 'nomPacmanDist': -8, 'distFromGhost': 0, 'capDist': 0, 'returnDist': 0, 'eaten': 10}
 
-      
-      # otherwise, return the same as above:
-      return {'sucScore': 110, 'foodDist': -10, 'nomPacmanDist': 0, 'distFromGhost': 20, 'capDist': -15, 'returnDist': -15, 'eaten': 0}
+     """
     
+    # if all else fails:
+    
+    return {'sucScore': 1000+eaten*3.5, 'foodDist': -7, 'distFromGhost': 0, 'nomPacmanDist': 0, 'capDist': -5, 'returnDist': 5-eaten*3, 'eaten': 350}
+    
+   
   
   
     """
