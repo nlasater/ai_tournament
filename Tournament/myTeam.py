@@ -98,6 +98,7 @@ class getOffAction(Action):
     self.count = 0
     self.agent.distancer.getMazeDistances()
     self.init_food = init_food
+    self.target = None
     
     # establish the player zones
     bound = (gameState.data.layout.width - 2)/2
@@ -253,20 +254,10 @@ class getOffAction(Action):
             return {'sucScore': 0, 'foodDist': -1, 'nomPacmanDist': -8, 'distFromGhost': 0, 'capDist': 0, 'returnDist': 0, 'eaten': 10}
 
      """
-    
     # if all else fails:
-    
     return {'sucScore': 1000+eaten*3.5, 'foodDist': -7, 'distFromGhost': 0, 'nomPacmanDist': 0, 'capDist': -5, 'returnDist': 5-eaten*3, 'eaten': 350}
     
-   
-  
-  
-    """
-    FROM HERE ON NEEDS TO BE EDITED
 
-    DO NOT SUBMIT UNTIL THIS HAS BEEN CHANGED, SO IT DOESNT READ AS A COPY
-
-    """
   def allSimulation(self, depth, gameState, decay):
     new_state = gameState.deepCopy()
     result_list = []
@@ -295,30 +286,59 @@ class getOffAction(Action):
     for a in actions:
         # Compute new state and update depth
         next_state = new_state.generateSuccessor(self.index, a)
-        result_list.append(
-            self.evaluate(next_state, Directions.STOP) + decay * self.allSimulation(depth - 1, next_state, decay))
+        result_list.append(self.evaluate(next_state, Directions.STOP) + decay * self.allSimulation(depth - 1, next_state, decay))
     return max(result_list)
 
 
   def chooseAction(self, gameState):
-    start = time.time()
+    #start = time.time()
+
+    foodPos = []
+    index = 0
+    for f in self.agent.getFood(gameState):
+      for i in range(0, len(f)-1, 1):
+        if f[i]:
+          foodPos.append((index, i))
+      index += 1
+    myPos = gameState.getAgentState(self.index).configuration.getPosition()
+    closestFood = min([(self.agent.getMazeDistance(myPos, f), f) for f in foodPos])
+    self.target = closestFood[1]
 
     # Get valid actions. Randomly choose a valid one out of the best (if best is more than one)
-    actions = gameState.getLegalActions(self.agent.index)
-    actions.remove(Directions.STOP)
-    feasible = []
+    actions = gameState.getLegalActions(self.index)
+    feasible_actions = []
+    fvalues = []
+    # Generates new states for each action
     for a in actions:
-        value = 0
+      new_state = gameState.generateSuccessor(self.index, a)
+      # If the action isn't STOP and we are a ghost on our side of the boundary
+      if a != Directions.STOP:
+        # Get the position the action will lead to and add it to the feasible action list
+        newPosition = new_state.getAgentPosition(self.index)
+        feasible_actions.append(a)
+        # Get the distance between the new position the action has given us and the target and add it to a list
+        fvalues.append(self.agent.getMazeDistance(newPosition, self.target))
+
+    # Gets the lowest distance to the target
+    best = min(fvalues)
+    # Gets all actions that will lead to the best distance to the target
+    ties = filter(lambda x: x[0] == best, zip(fvalues, feasible_actions))
+
+    #actions.remove(Directions.STOP)
+    #feasible = []
+    #for a in actions:
+    #    value = 0
         # for i in range(0, 10):
         #     value += self.randomSimulation1(2, new_state, 0.8) / 10
         # fvalues.append(value)
-        value = self.allSimulation(2, gameState.generateSuccessor(self.agent.index, a), 0.7)
-        feasible.append(value)
+    #    value = self.allSimulation(2, gameState.generateSuccessor(self.agent.index, a), 0.7)
+    #    feasible.append(value)
 
-    bestAction = max(feasible)
-    possibleChoice = filter(lambda x: x[0] == bestAction, zip(feasible, actions))
-    print 'eval time for offensive agent %d: %.4f' % (self.agent.index, time.time() - start)
-    return random.choice(possibleChoice)[1]
+    #bestAction = max(feasible)
+    #possibleChoice = filter(lambda x: x[0] == bestAction, zip(feasible, actions))
+    #print 'eval time for offensive agent %d: %.4f' % (self.agent.index, time.time() - start)
+    #return random.choice(possibleChoice)[1]
+    return random.choice(ties)[1]
 
 
 
@@ -440,32 +460,33 @@ class getDefensiveActions(Action):
       return random.choice(targets)
 
   def chooseAction(self, gameState):
-    start = time.time()
+    #start = time.time()
 
     # If we have reached our target, stop reset the target to none
     myPos = gameState.getAgentPosition(self.index)
     if myPos == self.target:
       self.target = None
 
-    DefendingList = self.agent.getFoodYouAreDefending(gameState).asList()
+    #DefendingList = self.agent.getFoodYouAreDefending(gameState).asList()
     #if self.lastObservedFood and len(self.lastObservedFood) != len(DefendingList):     i dont think this does anything
     self.DefenceProbability(gameState)
-
-    # Visible enemy , keep chasing.
-    enemies=[gameState.getAgentState(i) for i in self.agent.getOpponents(gameState)]
-    inRange = filter(lambda x: x.isPacman and x.getPosition() != None,enemies)
-    if len(inRange)>0:
-      eneDis,enemyPac = min([(self.agent.getMazeDistance(myPos,x.getPosition()), x) for x in inRange])
-      self.target=enemyPac.getPosition()
-    elif self.lastObservedFood != None:
-      eaten = set(self.lastObservedFood) - set(self.agent.getFoodYouAreDefending(gameState).asList())
-      if len(eaten)>0:
-        closestFood, self.target = min([(self.agent.getMazeDistance(myPos,f),f) for f in eaten])
-
     self.lastObservedFood = self.agent.getFoodYouAreDefending(gameState).asList()
 
+    # Visible enemy , keep chasing.
+    # Gets enemies
+    enemies = [gameState.getAgentState(i) for i in self.agent.getOpponents(gameState)]
+    # Filters out enemies not on our side of the field
+    inRange = filter(lambda x: x.isPacman and x.getPosition() != None,enemies)
+    # If there's an invader set the invader as our target
+    if len(inRange) > 0:
+      eneDis, enemyPac = min([(self.agent.getMazeDistance(myPos,x.getPosition()), x) for x in inRange])
+      self.target = enemyPac.getPosition()
+    #elif self.lastObservedFood != None:
+    #  eaten = set(self.lastObservedFood) - set(self.agent.getFoodYouAreDefending(gameState).asList())
+    #  if len(eaten)>0:
+    #    closestFood, self.target = min([(self.agent.getMazeDistance(myPos,f),f) for f in eaten])
 
-    # We have only a few dots.
+    # If we have no current target, and less that 5 food/capsules, randomly choose one to defend
     if self.target == None and len(self.agent.getFoodYouAreDefending(gameState).asList()) <= 4:
       food = self.agent.getFoodYouAreDefending(gameState).asList() + self.agent.getCapsulesYouAreDefending(gameState)
       self.target = random.choice(food)
@@ -474,21 +495,29 @@ class getDefensiveActions(Action):
     elif self.target == None:
       self.target = self.selectPatrolTarget(gameState)
 
+
+    # Gets all possible actions
     actions = gameState.getLegalActions(self.index)
-    feasible = []
+    feasible_actions = []
     fvalues = []
+    # Generates new states for each action
     for a in actions:
       new_state = gameState.generateSuccessor(self.index, a)
-      if not a == Directions.STOP and not new_state.getAgentState(self.index).isPacman:
+      # If the action isn't STOP and we are a ghost on our side of the boundary
+      if a != Directions.STOP and not new_state.getAgentState(self.index).isPacman:
+        # Get the position the action will lead to and add it to the feasible action list
         newPosition = new_state.getAgentPosition(self.index)
-        feasible.append(a)
+        feasible_actions.append(a)
+        # Get the distance between the new position the action has given us and the target and add it to a list
         fvalues.append(self.agent.getMazeDistance(newPosition, self.target))
 
-    # Randomly chooses between ties.
+    # Gets the lowest distance to the target
     best = min(fvalues)
-    ties = filter(lambda x: x[0] == best, zip(fvalues, feasible))
+    # Gets all actions that will lead to the best distance to the target
+    ties = filter(lambda x: x[0] == best, zip(fvalues, feasible_actions))
 
-    print 'eval time for defender agent %d: %.4f' % (self.index, time.time() - start)
+    #print 'eval time for defender agent %d: %.4f' % (self.index, time.time() - start)
+    # Randomly choose action
     return random.choice(ties)[1]
 
 
@@ -505,7 +534,7 @@ class Attacker(CaptureAgent):
   def chooseAction(self, gameState):
     self.enemies = self.getOpponents(gameState)
     invaders = [a for a in self.enemies if gameState.getAgentState(a).isPacman]
-    if  self.getScore(gameState) >= 13:
+    if  self.getScore(gameState) >= 100:
         return self.DefenceStatus.chooseAction(gameState)
     else:
         return self.OffenceStatus.chooseAction(gameState)
