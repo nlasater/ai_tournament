@@ -370,6 +370,7 @@ class getDefensiveActions(Action):
     # Update probabilities to each patrol point.
     self.DefenceProbability(gameState)
 
+  '''
   def DefenceProbability(self, gameState):
     """
     This method calculates the minimum distance from our patrol
@@ -412,16 +413,17 @@ class getDefensiveActions(Action):
     # For each invader, we find which capsule they are closest to
     closest = {}
     for invader in invaders:
-      dists = {}
-      for f in food:
-        dists[f] = self.agent.getMazeDistance(invader.configuration.getPosition(), f)
-      # idk why but we use max to find the capsule closest to invaders
-      closestFood = max(dists)
+      if invader.configuration != None:
+        dists = {}
+        for f in food:
+          dists[f] = self.agent.getMazeDistance(invader.configuration.getPosition(), f)
+        # idk why but we use max to find the capsule closest to invaders
+        closestFood = max(dists)
 
-      if invader.configuration.getPosition() not in self.DefendList.keys():
-        self.DefendList[invader.configuration.getPosition()] = 10.0 / float(dists[closestFood])
-      else:
-        self.DefendList[invader.configuration.getPosition()] += 10.0 / float(dists[closestFood])
+        if invader.configuration.getPosition() not in self.DefendList.keys():
+          self.DefendList[invader.configuration.getPosition()] = 10.0 / float(dists[closestFood])
+        else:
+          self.DefendList[invader.configuration.getPosition()] += 10.0 / float(dists[closestFood])
 
 
     # Sums all values to be normalized
@@ -435,7 +437,7 @@ class getDefensiveActions(Action):
 
   def selectPatrolTarget(self, gameState):
     """
-    Select some patrol point to use as target.
+    #Select some patrol point to use as target.
     """
     maxProb=max(self.DefendList[x] for x in self.DefendList.keys())
     targets = lambda x: self.DefendList[x] == maxProb, self.DefendList.keys()
@@ -446,18 +448,53 @@ class getDefensiveActions(Action):
     bestEnemyTarget = {}
     bestEnemyTargetDist = {}
     invaders = [gameState.getAgentState(a) for a in self.enemies if gameState.getAgentState(a).isPacman]
-    for enemy in invaders:
-      enemyPos = gameState.getAgentState(enemy).configuration.getPosition()
-      bestTarget = [(target, self.agent.getMazeDistance(enemyPos, target)) if min([self.agent.getMazeDistance(enemyPos, target) for target in targets]) else None]
-      bestEnemyTarget[enemy] = bestTarget[0]
-      bestEnemyTargetDist[enemy] = bestTarget[1]
-
     if invaders:
-      newTarget = min(bestEnemyTargetDist)
+      for enemy in invaders:
+        if enemy.configuration != None:
+          enemyPos = enemy.configuration.getPosition()
+          bestTarget = [(target, self.agent.getMazeDistance(enemyPos, target)) if min([self.agent.getMazeDistance(enemyPos, target) for target in targets]) else None]
+          bestEnemyTarget[enemy] = bestTarget[0]
+          bestEnemyTargetDist[enemy] = bestTarget[1]
+
+      newTarget = min(bestEnemyTargetDist) if len(bestEnemyTargetDist) > 0 else filter(lambda x: self.DefendList[x] == maxProb, self.DefendList.keys())
+      if len(newTarget) > 1 : return random.choice(newTarget)
       return bestEnemyTarget[newTarget]
     else:
       targets = filter(lambda x: self.DefendList[x] == maxProb, self.DefendList.keys())
       return random.choice(targets)
+  '''
+
+  def DefenceProbability(self, gameState):
+    """
+    This method calculates the minimum distance from our patrol
+    points to our pacdots. The inverse of this distance will
+    be used as the probability to select the patrol point as
+    target.
+    """
+    total = 0
+
+    for position in self.boundary:
+        food = self.agent.getFoodYouAreDefending(gameState).asList()
+        closestFoodDistance=min(self.agent.getMazeDistance(position,f) for f in food)
+        if closestFoodDistance == 0:
+            closestFoodDistance = 1
+        self.DefendList[position] = 1.0 / float(closestFoodDistance)
+        total += self.DefendList[position]
+
+    # Normalize.
+    if total == 0:
+        total = 1
+    for x in self.DefendList.keys():
+        self.DefendList[x] = float(self.DefendList[x]) / float(total)
+
+  def selectPatrolTarget(self):
+    """
+    Select some patrol point to use as target.
+    """
+
+    maxProb=max(self.DefendList[x] for x in self.DefendList.keys())
+    bestTarget = filter(lambda x: self.DefendList[x] == maxProb, self.DefendList.keys())
+    return random.choice(bestTarget)
 
   def chooseAction(self, gameState):
     #start = time.time()
@@ -493,7 +530,7 @@ class getDefensiveActions(Action):
 
     # Random patrolling
     elif self.target == None:
-      self.target = self.selectPatrolTarget(gameState)
+      self.target = self.selectPatrolTarget()
 
 
     # Gets all possible actions
