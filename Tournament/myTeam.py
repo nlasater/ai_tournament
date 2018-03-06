@@ -258,6 +258,7 @@ class getOffAction(Action):
     return {'sucScore': 1000+eaten*3.5, 'foodDist': -7, 'distFromGhost': 0, 'nomPacmanDist': 0, 'capDist': -5, 'returnDist': 5-eaten*3, 'eaten': 350}
     
 
+  '''
   def allSimulation(self, depth, gameState, decay):
     new_state = gameState.deepCopy()
     result_list = []
@@ -288,11 +289,13 @@ class getOffAction(Action):
         next_state = new_state.generateSuccessor(self.index, a)
         result_list.append(self.evaluate(next_state, Directions.STOP) + decay * self.allSimulation(depth - 1, next_state, decay))
     return max(result_list)
-
+  '''
 
   def chooseAction(self, gameState):
     #start = time.time()
+    myPos = gameState.getAgentState(self.index).configuration.getPosition()
 
+    # Finds closest uneaten food and sets it as its target
     foodPos = []
     index = 0
     for f in self.agent.getFood(gameState):
@@ -300,12 +303,14 @@ class getOffAction(Action):
         if f[i]:
           foodPos.append((index, i))
       index += 1
-    myPos = gameState.getAgentState(self.index).configuration.getPosition()
     closestFood = min([(self.agent.getMazeDistance(myPos, f), f) for f in foodPos])
     self.target = closestFood[1]
 
     # Get valid actions. Randomly choose a valid one out of the best (if best is more than one)
     actions = gameState.getLegalActions(self.index)
+    if Directions.STOP in actions and len(actions) > 1:
+      actions.remove(Directions.STOP)
+
     feasible_actions = []
     fvalues = []
     # Generates new states for each action
@@ -324,6 +329,8 @@ class getOffAction(Action):
     # Gets all actions that will lead to the best distance to the target
     ties = filter(lambda x: x[0] == best, zip(fvalues, feasible_actions))
 
+
+    ### weird code ###
     #actions.remove(Directions.STOP)
     #feasible = []
     #for a in actions:
