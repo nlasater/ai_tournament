@@ -272,12 +272,8 @@ class getOffAction(Action):
         if f[i]:
           foodPos.append((index, i))
       index += 1
-      
-    # get the three closest foods
-    closestFood = nsmallest(3, [(self.agent.getMazeDistance(myPos, f), f) for f in foodPos])
-    self.target = closestFood[0][1]
-    self.target2 = closestFood[1][1]
-    self.target3 = closestFood[2][1]
+    closestFood = min([(self.agent.getMazeDistance(myPos, f), f) for f in foodPos])
+    self.target = closestFood[1]
 
     # Get valid actions. Randomly choose a valid one out of the best (if best is more than one)
     actions = gameState.getLegalActions(self.index)
@@ -287,15 +283,6 @@ class getOffAction(Action):
     feasible_actions = []
     fvalues = []
     
-    # get current distance from ghosts (if they are visible) 
-    enemies = [gameState.getAgentState(i) for i in self.agent.getOpponents(gameState)]
-    # then get only the ghosts:
-    ghosts = filter(lambda x: not x.isPacman and x.getPosition() != None, enemies)
-    gdist = []
-    for g in ghosts:
-      if self.agent.getMazeDistance(gameState.getAgentPosition(self.index), g.getPosition()) >= 4:
-        gdist.append(self.agent.getMazeDistance(gameState.getAgentPosition(self.index), g.getPosition()))
-    
     # Generates new states for each action
     for a in actions:
       new_state = gameState.generateSuccessor(self.index, a)
@@ -303,64 +290,54 @@ class getOffAction(Action):
       if a != Directions.STOP:
         # Get the position the action will lead to and add it to the feasible action list
         newPosition = new_state.getAgentPosition(self.index)
-        feasible_actions.append(a) # three times, one for each target
-        feasible_actions.append(a)
         feasible_actions.append(a)
         
-        # Get the distance between the new position the action has given us and each target
-        t1val = self.agent.getMazeDistance(newPosition, self.target)
-        t2val = self.agent.getMazeDistance(newPosition, self.target2)
-        t3val = self.agent.getMazeDistance(newPosition, self.target3)
+        
+        # if we are within 5 tiles of a ghost, we want to forget about the food and run
+        #get current distance from ghosts (if they are visible) 
+        enemies = [new_state.getAgentState(i) for i in self.agent.getOpponents(new_state)]
+        # then get only the ghosts:
+        ghosts = filter(lambda x: not x.isPacman and x.getPosition() != None, enemies)
+        
+        if len(ghosts) > 0:
+          for g in ghosts:
+            dist = self.agent.getMazeDistance(newPosition, g.getPosition())
+            if dist < 5:
+              fvalues.append((5 - dist))
+        
+        else:
+          # Get the distance between the new position the action has given us and the target and add it to a list
+          fvalues.append(self.agent.getMazeDistance(newPosition, self.target))
         
         
-        # We also want to make this action less desirable if it brings us closer to a ghost, or if the target is close to a ghost so check and see
+      """
         # get current distance from ghosts (if they are visible) 
         new_enemies = [new_state.getAgentState(i) for i in self.agent.getOpponents(new_state)]
         # then get only the ghosts:
         new_ghosts = filter(lambda x: not x.isPacman and x.getPosition() != None, enemies)
         
-        t1dist = 0
-        t2dist = 0
-        t3dist = 0
-        ghostdist = 0
         #if there are ghosts in range
         if len(new_ghosts) > 0:
-          
-          
-          
           #if there were ghosts before this action, compare the dist:
           if len(gdist) > 0:
             count = 0
             for ghost in new_ghosts:
-              
-              # first check if food is close to a ghost:
-              t1dist = self.agent.getMazeDistance(self.target, ghost.getPosition())
-              t2dist = self.agent.getMazeDistance(self.target2, ghost.getPosition())
-              t3dist = self.agent.getMazeDistance(self.target3, ghost.getPosition())
-
-              if t1dist > 5: 
-                t1dist = 0
-              if t2dist > 5: 
-                t2dist = 0
-              if t3dist > 5: 
-                t3dist = 0
-            
               if count < len(gdist):
                 new_dist = self.agent.getMazeDistance(new_state.getAgentPosition(self.index), ghost.getPosition())
                 if new_dist < gdist[count] and new_dist < 4:
-                  ghostdist = gdist[count] - new_dist
+                  value_to_nerf = fvalues.pop(-1)
+                  value_to_nerf = value_to_nerf*(2)
+                  fvalues.append(value_to_nerf)
                   count = count+1
+                  
+                  """
              
-        # finally compile fvalues
-        # we will have 3 for this action:
-        fvalues.append(t1val + t1dist + ghostdist)
-        fvalues.append(t2val + t2dist + ghostdist)
-        fvalues.append(t3val + t3dist + ghostdist)
+                
               
           
-    # Gets the lowest distance to any target
+    # Gets the lowest distance to the target
     best = min(fvalues)
-    # Gets all actions that will lead to the best distance to any target
+    # Gets all actions that will lead to the best distance to the target
     ties = filter(lambda x: x[0] == best, zip(fvalues, feasible_actions))
 
 
